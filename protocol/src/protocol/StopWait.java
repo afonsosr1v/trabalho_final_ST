@@ -24,6 +24,13 @@ public class StopWait extends Base_Protocol implements Callbacks {
         // Initialize here all variables
         // ...
     }
+    
+    private void send_next_data_packet(){
+        if(sending_buffer!=null){
+            Frame frame = Frame.new_Data_Frame(next_frame_to_send /*seq*/, prev_seq(0) /* ack= the one before 0 */, net.get_recvbuffsize() /* receiver buffer space available in the network layer */, sending_buffer);
+            sim.to_physical_layer(frame, false /* do not interrupt an ongoing transmission*/);
+        }
+    }
 
     /**
      * CALLBACK FUNCTION: handle the beginning of the simulation event
@@ -32,7 +39,12 @@ public class StopWait extends Base_Protocol implements Callbacks {
     @Override
     public void start_simulation(long time) {
         sim.Log("\nStop&Wait Protocol\n\n");
-        sim.Log("\nNot implemented yet\n\n");    
+        sending_buffer = net.from_network_layer();
+        send_next_data_packet();
+        //sim.Log("\nNot implemented yet\n\n");    
+        //TENHO QUE FAZER AQUI UM IF
+        
+        
     }
 
     /**
@@ -42,6 +54,7 @@ public class StopWait extends Base_Protocol implements Callbacks {
      */
     @Override
     public void handle_Data_end(long time, int seq) {
+        sim.start_data_timer(next_frame_to_send);
         // Do nothing
     }
     
@@ -52,7 +65,8 @@ public class StopWait extends Base_Protocol implements Callbacks {
      */
     @Override
     public void handle_Data_Timer(long time, int key) {
-        sim.Log("handle_Data_Timer not implemented\n");
+        //sim.Log("handle_Data_Timer not implemented\n");
+        send_next_data_packet();
     }
     
     /**
@@ -61,7 +75,8 @@ public class StopWait extends Base_Protocol implements Callbacks {
      */
     @Override
     public void handle_ack_Timer(long time) {
-        sim.Log("handle_ack_Timer not implemented\n");
+        //sim.Log("handle_ack_Timer not implemented\n");
+        sim.Log(time+" ACK Timout - ignored\n");
     }
 
     /**
@@ -71,7 +86,35 @@ public class StopWait extends Base_Protocol implements Callbacks {
      */
     @Override
     public void from_physical_layer(long time, Frame frame) {
-        sim.Log("from_physical_layer not implemented\n");
+        //sim.Log("from_physical_layer not implemented\n");
+        //send
+         if (frame.kind() == Frame.ACK_FRAME) {
+            if(frame.ack()==next_frame_to_send){
+                sim.cancel_data_timer(next_frame_to_send);
+                
+                sim.Log("Recebeu"+time+next_frame_to_send+"\n");
+                
+                next_frame_to_send = next_seq(next_frame_to_send);
+                sending_buffer = net.from_network_layer();
+                send_next_data_packet();
+                
+            }
+            //AckFrameIF aframe= frame;  // Auxiliary variable to access the Ack frame fields.
+            // ...
+        }
+        else { //RECIEVE
+            //if (frame.kind() == Frame.DATA_FRAME) {     // Check the frame kind
+            DataFrameIF dframe= frame;  // Auxiliary variable to access the Data frame fields.
+            if (dframe.seq() == frame_expected) {    // Check the sequence number
+                // Send the frame to the network layer
+                if (net.to_network_layer(dframe.info())) {
+                    //
+                    frame_expected = next_seq(frame_expected);
+                }
+            }
+        }
+        Frame ack = Frame.new_Ack_Frame(frame.seq(), net.get_recvbuffsize());
+        sim.to_physical_layer(ack, false);
     }
 
     /**
@@ -95,5 +138,11 @@ public class StopWait extends Base_Protocol implements Callbacks {
      * Reference to the network layer, to send a receive packets
      */
     //final NetworkLayer net;    -  Inherited from Base_Protocol
+    
+    private int next_frame_to_send;
+    
+    private String sending_buffer;
+    
+    private int frame_expected;
     
 }

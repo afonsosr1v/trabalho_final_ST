@@ -21,6 +21,13 @@ public class Simplex_snd extends Base_Protocol implements Callbacks {
         next_frame_to_send = 0;
         // ...
     }
+    
+    private void send_next_data_packet(){
+        if(sending_buffer!=null){
+            Frame frame = Frame.new_Data_Frame(next_frame_to_send /*seq*/, prev_seq(0) /* ack= the one before 0 */, net.get_recvbuffsize() /* receiver buffer space available in the network layer */, sending_buffer);
+            sim.to_physical_layer(frame, false /* do not interrupt an ongoing transmission*/);
+        }
+    }
 
     /***
      * CALLBACK FUNCTION: handle the beginning of the simulation event
@@ -30,8 +37,9 @@ public class Simplex_snd extends Base_Protocol implements Callbacks {
     @Override
     public void start_simulation(long time) {
         sim.Log("\nSimplex Sender Protocol\n\tOnly send data!\n\n");
-        sim.Log("\nNot implemented yet\n\n");
-        
+        //sim.Log("\nNot implemented yet\n\n");
+        sending_buffer = net.from_network_layer();
+        send_next_data_packet();
     }
 
     /**
@@ -41,6 +49,7 @@ public class Simplex_snd extends Base_Protocol implements Callbacks {
      */
     @Override
     public void handle_Data_end(long time, int seq) {
+        sim.start_data_timer(next_frame_to_send);
         // Do nothing
     }
     
@@ -51,9 +60,11 @@ public class Simplex_snd extends Base_Protocol implements Callbacks {
      */
     @Override
     public void handle_Data_Timer(long time, int key) {
-        sim.Log(time + " Data Timeout not expected\n");
-        sim.start_data_timer(-1);
+        //sim.Log(time + " Data Timeout not expected\n");
+        //sim.start_data_timer(-1);
+        send_next_data_packet();
     }
+    
     
     /**
      * CALLBACK FUNCTION: handle the ack timer event; send ACK frame
@@ -61,7 +72,8 @@ public class Simplex_snd extends Base_Protocol implements Callbacks {
      */
     @Override
     public void handle_ack_Timer(long time) {
-        sim.Log(time + " ACK Timeout - ignored\n");
+        //sim.Log(time + " ACK Timeout - ignored\n");
+        sim.start_ack_timer();
     }
 
     /**
@@ -71,15 +83,19 @@ public class Simplex_snd extends Base_Protocol implements Callbacks {
      */
     @Override
     public void from_physical_layer(long time, Frame frame) {
-        sim.Log("from_physical_layer not implemented\n"); 
+       // sim.Log("from_physical_layer not implemented\n"); 
         if (frame.kind() == Frame.ACK_FRAME) {
             if(frame.ack()==next_frame_to_send){
-                sim.cancel_data_timer(-1);
+                sim.cancel_data_timer(next_frame_to_send);
                 
-                sim.Log("recebeu drenas"+time+next_frame_to_send);
+                sim.Log("Recebeu"+time+next_frame_to_send+"\n");
+                
+                next_frame_to_send = next_seq(next_frame_to_send);
+                sending_buffer = net.from_network_layer();
+                send_next_data_packet();
                 
             }
-            AckFrameIF aframe= frame;  // Auxiliary variable to access the Ack frame fields.
+            //AckFrameIF aframe= frame;  // Auxiliary variable to access the Ack frame fields.
             // ...
         }
     }
@@ -93,19 +109,19 @@ public class Simplex_snd extends Base_Protocol implements Callbacks {
         sim.Log("Stopping simulation\n");
     }
     
-    void send_next_data_packet() {
+    //void send_next_data_packet() {
         
-        String packet= net.from_network_layer(); // Get packet from network layer
+        //sending_buffer = net.from_network_layer(); // Get packet from network layer
         
-        if (packet != null) {
+    //    if (sending_buffer != null) {
         // The ACK field of the DATA frame is always the sequence number before 0,
         // because no packets will be received!
-            Frame frame = Frame.new_Data_Frame(next_frame_to_send /*seq*/, prev_seq(0) /* ack= the one before 0 */, net.get_recvbuffsize() /* receiver buffer space available in the network layer */, packet);
-            sim.to_physical_layer(frame, false /* do not interrupt an ongoing transmission*/);
-        
-            next_frame_to_send= next_seq(next_frame_to_send);
-        }
-    }
+    //        Frame frame = Frame.new_Data_Frame(next_frame_to_send /*seq*/, prev_seq(0) /* ack= the one before 0 */, net.get_recvbuffsize() /* receiver buffer space available in the network layer */, sending_buffer);
+    //        sim.to_physical_layer(frame, false /* do not interrupt an ongoing transmission*/);
+    //    
+    //        next_frame_to_send= next_seq(next_frame_to_send);
+    //    }
+    //} 
     
     
     /* Variables */

@@ -28,7 +28,7 @@ public class Simplex_rcv extends Base_Protocol implements Callbacks {
     @Override
     public void start_simulation(long time) {
         sim.Log("\nSimplex Receiver Protocol\n\tOnly receive data!\n\n");
-        sim.Log("\nNot implemented yet\n\n");
+       // sim.Log("\nNot implemented yet\n\n");
     }
 
     /**
@@ -48,6 +48,8 @@ public class Simplex_rcv extends Base_Protocol implements Callbacks {
                 }
             }
         }
+        Frame ack = Frame.new_Ack_Frame(frame.seq(), net.get_recvbuffsize());
+        sim.to_physical_layer(ack, false);
     }
 
     /**
@@ -58,6 +60,8 @@ public class Simplex_rcv extends Base_Protocol implements Callbacks {
     public void end_simulation(long time) {
         sim.Log("Stopping simulation\n");
     }
+    
+    
     
  
     
